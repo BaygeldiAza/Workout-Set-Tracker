@@ -1,13 +1,498 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Workout Set Tracker</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Touch friendly optimizations for iOS Safari / Chrome */
+        -webkit-tap-highlight-color: transparent;
+        body {
+            touch-action: manipulation;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* Custom scrollbar hiding */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Prevent input spin buttons for cleaner iOS input */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-500 flex items-center justify-center font-bold">
+                <i data-lucide="dumbbell" class="w-5 h-5"></i>
+            </div>
+            <h1 class="text-lg font-bold tracking-tight text-white">RepTrack</h1>
+        </div>
+        
+        <!-- Date Selector -->
+        <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+            <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+            <input type="date" id="current-date-picker" class="bg-transparent text-sm font-medium text-white focus:outline-none cursor-pointer">
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-lg w-full mx-auto p-4 pb-28 space-y-6">
+
+        <!-- Navigation Tabs -->
+        <div class="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+            <button id="tab-today" onclick="switchTab('today')" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-500 text-slate-950 transition-all shadow-md">
+                Today's Log
+            </button>
+            <button id="tab-history" onclick="switchTab('history')" class="flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all">
+                History Logs
+            </button>
+        </div>
+
+        <!-- TODAY VIEW -->
+        <div id="view-today" class="space-y-4">
+            
+            <!-- Quick Add Exercise Box -->
+            <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-4 shadow-lg space-y-3">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Add New Exercise</label>
+                <div class="flex gap-2">
+                    <input type="text" id="new-exercise-name" placeholder="e.g. Bench Press, Squats..." class="flex-1 bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-brand-500 transition-colors">
+                    <button onclick="addExercise()" class="bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold px-4 py-3 rounded-xl flex items-center justify-center transition-all active:scale-95">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- List of Exercises -->
+            <div id="exercise-list" class="space-y-4">
+                <!-- Dynamic exercise cards inserted here -->
+            </div>
+
+            <!-- Empty State for Today -->
+            <div id="empty-today-state" class="hidden text-center py-12 px-4 space-y-3">
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-500">
+                    <i data-lucide="clipboard-x" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-base font-semibold text-slate-300">No exercises logged yet</h3>
+                <p class="text-xs text-slate-500 max-w-xs mx-auto">Add an exercise above to start recording your sets, weight, and repetitions for today.</p>
+            </div>
+        </div>
+
+        <!-- HISTORY VIEW -->
+        <div id="view-history" class="hidden space-y-4">
+            <div class="flex justify-between items-center px-1">
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Past Saved Workouts</h2>
+                <button onclick="exportData()" class="text-xs text-brand-500 hover:underline flex items-center gap-1">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Backup
+                </button>
+            </div>
+
+            <div id="history-list" class="space-y-3">
+                <!-- Dynamic history cards inserted here -->
+            </div>
+
+            <!-- Empty History State -->
+            <div id="empty-history-state" class="hidden text-center py-12 px-4 space-y-3">
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-500">
+                    <i data-lucide="history" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-base font-semibold text-slate-300">No workout history yet</h3>
+                <p class="text-xs text-slate-500 max-w-xs mx-auto">Completed sets and exercises from previous days will automatically show up here.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification Popup -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-brand-500/50 text-slate-100 px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-medium translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-brand-500"></i>
+        <span id="toast-message">Workout Saved Successfully</span>
+    </div>
+
+    <script>
+        // Data Structure state held in memory
+        let currentSelectedDate = new Date().toISOString().split('T')[0];
+        let workoutData = JSON.parse(localStorage.getItem('reptrack_data')) || {};
+
+        // On DOM Loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set datepicker to current date
+            const datePicker = document.getElementById('current-date-picker');
+            datePicker.value = currentSelectedDate;
+
+            datePicker.addEventListener('change', (e) => {
+                currentSelectedDate = e.target.value;
+                renderTodayLog();
+            });
+
+            // Initial UI render
+            renderTodayLog();
+            lucide.createIcons();
+        });
+
+        // Tab Switching
+        function switchTab(tab) {
+            const todayView = document.getElementById('view-today');
+            const historyView = document.getElementById('view-history');
+            const tabTodayBtn = document.getElementById('tab-today');
+            const tabHistoryBtn = document.getElementById('tab-history');
+
+            if (tab === 'today') {
+                todayView.classList.remove('hidden');
+                historyView.classList.add('hidden');
+                
+                tabTodayBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-500 text-slate-950 transition-all shadow-md';
+                tabHistoryBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+                renderTodayLog();
+            } else {
+                todayView.classList.add('hidden');
+                historyView.classList.remove('hidden');
+                
+                tabHistoryBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-500 text-slate-950 transition-all shadow-md';
+                tabTodayBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+                renderHistoryLog();
+            }
+        }
+
+        // Save Data to LocalStorage
+        function saveData() {
+            localStorage.setItem('reptrack_data', JSON.stringify(workoutData));
+        }
+
+        // Add Exercise
+        function addExercise() {
+            const input = document.getElementById('new-exercise-name');
+            const name = input.value.trim();
+
+            if (!name) return;
+
+            if (!workoutData[currentSelectedDate]) {
+                workoutData[currentSelectedDate] = [];
+            }
+
+            const newExercise = {
+                id: 'ex_' + Date.now(),
+                name: name,
+                sets: [
+                    { id: 'set_' + Date.now() + '_1', weight: '', reps: '', completed: false }
+                ]
+            };
+
+            workoutData[currentSelectedDate].push(newExercise);
+            saveData();
+            input.value = '';
+            renderTodayLog();
+            showToast('Exercise added');
+        }
+
+        // Add Set to Exercise
+        function addSet(exerciseId) {
+            const dayExercises = workoutData[currentSelectedDate] || [];
+            const exercise = dayExercises.find(ex => ex.id === exerciseId);
+            
+            if (exercise) {
+                // Copy values from last set if available for fast logging
+                const lastSet = exercise.sets[exercise.sets.length - 1];
+                const newSet = {
+                    id: 'set_' + Date.now(),
+                    weight: lastSet ? lastSet.weight : '',
+                    reps: lastSet ? lastSet.reps : '',
+                    completed: false
+                };
+
+                exercise.sets.push(newSet);
+                saveData();
+                renderTodayLog();
+            }
+        }
+
+        // Delete Set
+        function deleteSet(exerciseId, setId) {
+            const dayExercises = workoutData[currentSelectedDate] || [];
+            const exercise = dayExercises.find(ex => ex.id === exerciseId);
+
+            if (exercise) {
+                exercise.sets = exercise.sets.filter(s => s.id !== setId);
+                saveData();
+                renderTodayLog();
+            }
+        }
+
+        // Delete Exercise
+        function deleteExercise(exerciseId) {
+            if (workoutData[currentSelectedDate]) {
+                workoutData[currentSelectedDate] = workoutData[currentSelectedDate].filter(ex => ex.id !== exerciseId);
+                saveData();
+                renderTodayLog();
+                showToast('Exercise removed');
+            }
+        }
+
+        // Update Set Numeric Inputs
+        function updateSetInput(exerciseId, setId, field, value) {
+            const dayExercises = workoutData[currentSelectedDate] || [];
+            const exercise = dayExercises.find(ex => ex.id === exerciseId);
+
+            if (exercise) {
+                const set = exercise.sets.find(s => s.id === setId);
+                if (set) {
+                    set[field] = value;
+                    saveData();
+                }
+            }
+        }
+
+        // Toggle Checkmark / Set Completion
+        function toggleSetCompletion(exerciseId, setId) {
+            const dayExercises = workoutData[currentSelectedDate] || [];
+            const exercise = dayExercises.find(ex => ex.id === exerciseId);
+
+            if (exercise) {
+                const set = exercise.sets.find(s => s.id === setId);
+                if (set) {
+                    set.completed = !set.completed;
+                    saveData();
+                    renderTodayLog();
+                    if (set.completed) {
+                        showToast('Set completed!');
+                    }
+                }
+            }
+        }
+
+        // Render Today's Workout UI
+        function renderTodayLog() {
+            const listContainer = document.getElementById('exercise-list');
+            const emptyState = document.getElementById('empty-today-state');
+            const exercises = workoutData[currentSelectedDate] || [];
+
+            listContainer.innerHTML = '';
+
+            if (exercises.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            exercises.forEach((exercise) => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-md space-y-3';
+
+                let setsHTML = exercise.sets.map((set, index) => {
+                    const isChecked = set.completed;
+                    
+                    return `
+                        <div class="flex items-center gap-2 bg-slate-900/60 p-2 rounded-xl border ${isChecked ? 'border-brand-500/30 bg-brand-500/5' : 'border-slate-800'} transition-all">
+                            <!-- Set Index Number -->
+                            <span class="w-6 text-center text-xs font-semibold text-slate-500">#${index + 1}</span>
+
+                            <!-- Completion Toggle Button -->
+                            <button onclick="toggleSetCompletion('${exercise.id}', '${set.id}')" 
+                                class="w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isChecked ? 'bg-brand-500 text-slate-950 scale-105 shadow-md shadow-brand-500/20' : 'bg-slate-800 text-slate-600 border border-slate-700 active:scale-95'}">
+                                <i data-lucide="check" class="w-5 h-5 ${isChecked ? 'stroke-[3]' : 'stroke-[2]'}"></i>
+                            </button>
+
+                            <!-- Numeric Inputs for Weight and Reps -->
+                            <div class="flex-1 grid grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="number" 
+                                        inputmode="numeric" 
+                                        pattern="[0-9]*"
+                                        placeholder="0" 
+                                        value="${set.weight}" 
+                                        oninput="updateSetInput('${exercise.id}', '${set.id}', 'weight', this.value)"
+                                        class="w-full bg-slate-800 border border-slate-700 text-center text-sm font-semibold text-white rounded-lg py-2 px-1 focus:outline-none focus:border-brand-500 ${isChecked ? 'text-brand-400' : ''}">
+                                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 pointer-events-none">kg</span>
+                                </div>
+
+                                <div class="relative">
+                                    <input type="number" 
+                                        inputmode="numeric" 
+                                        pattern="[0-9]*"
+                                        placeholder="0" 
+                                        value="${set.reps}" 
+                                        oninput="updateSetInput('${exercise.id}', '${set.id}', 'reps', this.value)"
+                                        class="w-full bg-slate-800 border border-slate-700 text-center text-sm font-semibold text-white rounded-lg py-2 px-1 focus:outline-none focus:border-brand-500 ${isChecked ? 'text-brand-400' : ''}">
+                                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 pointer-events-none">reps</span>
+                                </div>
+                            </div>
+
+                            <!-- Delete Set -->
+                            <button onclick="deleteSet('${exercise.id}', '${set.id}')" class="p-2 text-slate-600 hover:text-red-400 transition-colors">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-700/50">
+                        <h3 class="font-bold text-base text-white tracking-wide flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-brand-500"></i> ${escapeHTML(exercise.name)}
+                        </h3>
+                        <button onclick="deleteExercise('${exercise.id}')" class="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-2">
+                        ${setsHTML}
+                    </div>
+
+                    <button onclick="addSet('${exercise.id}')" class="w-full py-2.5 mt-2 bg-slate-900/40 hover:bg-slate-900 border border-dashed border-slate-700 hover:border-brand-500/50 rounded-xl text-xs font-semibold text-slate-400 hover:text-brand-500 flex items-center justify-center gap-1.5 transition-all">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Another Set
+                    </button>
+                `;
+
+                listContainer.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Render History View
+        function renderHistoryLog() {
+            const historyList = document.getElementById('history-list');
+            const emptyHistory = document.getElementById('empty-history-state');
+            
+            const dates = Object.keys(workoutData).sort((a, b) => new Date(b) - new Date(a));
+            
+            historyList.innerHTML = '';
+
+            let hasValidEntries = false;
+
+            dates.forEach(dateStr => {
+                const exercises = workoutData[dateStr] || [];
+                if (exercises.length === 0) return;
+
+                hasValidEntries = true;
+                const formattedDate = new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { 
+                    weekday: 'short', 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+
+                const historyCard = document.createElement('div');
+                historyCard.className = 'bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 space-y-3';
+
+                let exercisesSummary = exercises.map(ex => {
+                    const completedCount = ex.sets.filter(s => s.completed).length;
+                    return `
+                        <div class="flex justify-between items-center text-xs text-slate-300 py-1 border-b border-slate-800 last:border-none">
+                            <span class="font-medium text-slate-200">${escapeHTML(ex.name)}</span>
+                            <span class="text-slate-400 bg-slate-900 px-2 py-0.5 rounded-full text-[11px]">
+                                ${completedCount}/${ex.sets.length} sets completed
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+
+                historyCard.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold text-brand-500">${formattedDate}</span>
+                        <button onclick="loadDateFromHistory('${dateStr}')" class="text-xs text-slate-400 hover:text-white bg-slate-700/50 px-2.5 py-1 rounded-lg transition-all">
+                            View / Edit
+                        </button>
+                    </div>
+                    <div class="bg-slate-900/50 rounded-xl p-2.5 space-y-1">
+                        ${exercisesSummary}
+                    </div>
+                `;
+
+                historyList.appendChild(historyCard);
+            });
+
+            if (!hasValidEntries) {
+                emptyHistory.classList.remove('hidden');
+            } else {
+                emptyHistory.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+        // Jump to historic date
+        function loadDateFromHistory(dateStr) {
+            currentSelectedDate = dateStr;
+            document.getElementById('current-date-picker').value = dateStr;
+            switchTab('today');
+        }
+
+        // Utility: Show Toast Notifications
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            msgEl.textContent = msg;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2000);
+        }
+
+        // Utility: HTML Escaping
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Backup Data
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workoutData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `reptrack_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
+</body>
 </html>
